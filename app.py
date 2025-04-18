@@ -21,30 +21,24 @@ def predict():
         print("Received request for prediction")
         payload = request.get_json()
         transactions = payload['data']
-        print("Data received:", transactions)
         df = pd.DataFrame(transactions)
         if df.empty:
             return jsonify({
                 "next_month_budget": float(0),
                 "note": "Estimate based on limited data."
             })
-        print("DataFrame created:", df)
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
         df.dropna(subset=['Date'], inplace=True)
         df['Amount'] = df['Amount'].astype(float)
-        print("DataFrame after processing:", df)
 
         daily = df.groupby('Date')['Amount'].sum().reset_index()
         daily['Date'] = pd.to_datetime(daily['Date'])
         daily.sort_values('Date', inplace=True)
         daily.set_index('Date', inplace=True)
 
-        print("Daily DataFrame:", daily)
         current_date = datetime.today().date()
         next_month_start = (current_date.replace(day=1) + pd.DateOffset(months=1)).replace(day=1)
         next_month_end = (next_month_start + pd.DateOffset(months=1) - pd.DateOffset(days=1))
-        print("Next month start:", next_month_start)
-        print("Next month end:", next_month_end)    
         future_dates = pd.date_range(start=next_month_start, end=next_month_end)
 
         if daily.shape[0] < 3:
@@ -70,7 +64,6 @@ def predict():
         daily['EMA_3'] = daily['Amount'].ewm(span=3).mean()
         daily['PctChange'] = daily['Amount'].pct_change().fillna(0)
         daily['LogAmount'] = np.log1p(daily['Amount'])
-        print("Daily DataFrame after feature engineering:", daily)
 
         # last_date = daily.index.max()
         # next_month_start = (last_date + pd.offsets.MonthBegin(1)).date()
@@ -87,7 +80,6 @@ def predict():
             log_values = [pad_value] * (14 - len(log_values)) + log_values
         else:
             log_values = log_values[-14:]
-        print("Log values for LSTM:", log_values)
 
         for date in future_dates:
             day = date.day
@@ -137,6 +129,6 @@ def predict():
         print("IN EXCEPTION",e)
         return jsonify({"error": str(e)}), 500
 
-# ==== Start Flask Server ====
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+# # ==== Start Flask Server ====
+# if __name__ == '__main__':
+#     app.run(debug=True, port=5000)
